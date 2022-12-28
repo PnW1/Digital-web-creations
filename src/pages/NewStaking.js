@@ -53,7 +53,6 @@ const NewStaking = () => {
   let web3 = new Web3(window?.web3?.currentProvider);
   if (window.ethereum) {
     web3 = new Web3(window.ethereum);
-    //console.log(web3, "web 3 console")
   } else {
     web3 = new Web3(
       new Web3.providers.HttpProvider(process.env.REACT_APP_PROVIDER_URL)
@@ -65,26 +64,42 @@ const NewStaking = () => {
   );
 
   const getUserToken = async () => {
+    var tempResponsArry = [];
     let res = await axios.get(
       `https://api.rarible.org/v0.1/items/byOwner/?owner=ETHEREUM:${account}`
+      // `https://api.rarible.org/v0.1/items/byOwner/?owner=ETHEREUM:0xD7c2F69C27bC57060e88ea80f36DD1e7dB42B430`
     );
-    var count = 0;
-    var tempArray = [];
     if (res.data) {
-      res.data.items.map((data) => {
-        let specificIndex = data.contract.indexOf(":");
-        let result = data.contract.slice(specificIndex + 1);
-        if (result === "0x9294b5bce53c444eb78b7bd9532d809e9b9cd123") {
-          tempArray.push({
-            tokenId: data.tokenId,
-            imageUrl: data.meta.content[0].url,
-          });
-          count += 1;
-        }
+      var continuation = res.data.continuation;
+      for (var i = 0; i < 10; i++) {
+        let newRes = await axios.get(
+          `https://api.rarible.org/v0.1/items/byOwner/?owner=ETHEREUM:${account}&continuation=${continuation}`
+          // `https://api.rarible.org/v0.1/items/byOwner/?owner=ETHEREUM:0xD7c2F69C27bC57060e88ea80f36DD1e7dB42B430&continuation=${continuation}`
+        );
+
+        if (newRes.data.items.length < 1) break; //this will put it outside for loop
+        continuation = newRes.data.continuation;
+        tempResponsArry = [...tempResponsArry, ...newRes.data.items];
+      }
+      tempResponsArry = [...res.data.items, ...tempResponsArry];
+      Promise.all(tempResponsArry).then((allData) => {
+        var count = 0;
+        var tempArray = [];
+        allData.map((data) => {
+          let specificIndex = data.contract.indexOf(":");
+          let result = data.contract.slice(specificIndex + 1);
+          if (result === "0x9294b5bce53c444eb78b7bd9532d809e9b9cd123") {
+            tempArray.push({
+              tokenId: data.tokenId,
+              imageUrl: data.meta.content[0].url,
+            });
+            count += 1;
+          }
+        });
+        setOpen(false);
+        setUserTotalNumberOfToken(count);
+        setUserTokenData(tempArray);
       });
-      setOpen(false);
-      setUserTotalNumberOfToken(count);
-      setUserTokenData(tempArray);
     }
   };
 
@@ -441,7 +456,7 @@ const NewStaking = () => {
                         }}
                       >
                         {userStakedTokenList?.length > 0
-                          ? userStakedTokenList?.length - 1
+                          ? userStakedTokenList?.length
                           : 0}
                       </Typography>
                     </Box>
